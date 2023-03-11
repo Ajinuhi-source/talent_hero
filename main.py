@@ -116,9 +116,6 @@ def calculate_days_between_dates(dates, max_diff):
             i += 1
 
     # Return the list of remaining dates
-
-    # Sort dates from newest to oldest
-    dates = dates[::-1]
     return dates.tolist()
 
 def pivot_rank_tracker(df):
@@ -137,6 +134,8 @@ def pivot_rank_tracker(df):
     # Rearrange the columns so that the 'Rank' columns come after the first column
     col_filtered_final = [col for col in df.columns if not 'Rank' in col]
     col_rank = [col for col in df.columns if 'Rank' in col]
+
+    col_rank.reverse()
     col_filtered_final[1:1] = col_rank
     df = df[col_filtered_final]
 
@@ -179,6 +178,8 @@ scrapers = [
 
 #launch_ahrefs_rank_tracker_scrapers(scrapers)
 folder = "data/ahrefs/rank_tracker"
+
+# search same project
 search_string = "*4086622*.csv"
 merged_df = merge_csv_files(folder, search_string)
 # sort by scraped date relative to current date
@@ -190,16 +191,18 @@ unique_dates = merged_df['date_scraped'].unique()
 
 unique_dates = calculate_days_between_dates(unique_dates, 10)
 
-print(unique_dates)
+# only keep the first 3 elements in the list, if there are more than 3 elements
+if len(unique_dates) > 3:
+    unique_dates = unique_dates[:3]
 
-# filter the dataframe to only include the unique dates
+# filter the dataframe to only include the desired dates
 merged_df = merged_df[merged_df['date_scraped'].isin(unique_dates)]
 
 # sort the dataframe by "scrapped_date" from newest to oldest
 merged_df = merged_df.sort_values('date_scraped', ascending=False)
 
+# pivot by rank
 merged_df = pivot_rank_tracker(merged_df)
-
 # save merged_df to csv
-merged_df.to_csv('data/ahrefs/rank_tracker/merged_rank_tracker.csv', index=False)
+merged_df.to_csv('data/ahrefs/rank_tracker/rank_tracker_report.csv', index=False)
 
