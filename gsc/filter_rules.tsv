@@ -1,0 +1,39 @@
+Keyword	Domain	Filter Type
+energy resourcing	energyresourcing.com	Blacklist
+archipro	archipro.com	Blacklist
+vetted	getvettednow.com	Blacklist
+180	180engineering.com	Blacklist
+bemana	bemana.us	Blacklist
+bristol	bristolassoc.com	Blacklist
+caltek	caltekstaffing.com	Blacklist
+energists	energists.com	Blacklist
+lock	locksearchgroup.com	Blacklist
+mangrum	mangrumcareersolutions.com	Blacklist
+nexus	nexusitgroup.com	Blacklist
+pender	penderhowe.com	Blacklist
+quantum	quantumlifecycle.com	Blacklist
+redfish	redfishtech.com	Blacklist
+summit	summitsearchgroup.com	Blacklist
+surf search	surfsearch.org	Blacklist
+staff	All	Whitelist
+recruit	All	Whitelist
+job	All	Blacklist
+energy	energyresourcing.com	Whitelist
+oil	energyresourcing.com	Whitelist
+gas	energyresourcing.com	Whitelist
+power	energyresourcing.com	Whitelist
+renewable	energyresourcing.com	Whitelist
+mining	energyresourcing.com	Whitelist
+chemical	energyresourcing.com	Whitelist
+construction	energyresourcing.com	Whitelist
+technology	energyresourcing.com	Whitelist
+architect	archipro.com	Whitelist
+interior design	archipro.com	Whitelist
+landscape	archipro.com	Whitelist
+engineer	180engineering.com	Whitelist
+project	180engineering.com	Whitelist
+program	180engineering.com	Whitelist
+database	180engineering.com	Whitelist
+helpdesk	180engineering.com	Whitelist
+system admin	180engineering.com	Whitelist
+systems admin	180engineering.com	Whitelist
