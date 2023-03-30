@@ -6,182 +6,74 @@ import tldextract
 import pandas as pd
 import tldextract
 from tqdm import tqdm
-from utils import get_date_ranges
+import pycountry_convert as pc
 from utils import download_gsheet
+from serpclix_tracking import process_click_tracking_data_serpclix
+from in_house_tracking import process_in_house_link_clicking_df
+from utils import add_domain_tld_column
+from utils import add_date_range_column_and_clean
+from utils import get_date_ranges
 
 
-def process_in_house_link_clicking_df(
-    click_tracking_df: pd.DataFrame,
-) -> pd.DataFrame:
+def count_in_house_clicks(click_data_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Process click tracking data from in house source.
-
-    Parameters:
-    -----------
-    click_tracking_df : pandas.DataFrame
-        The click tracking data as a pandas DataFrame.
-
-    Returns:
-        pd.DataFrame: A cleaned DataFrame containing only the "Keyword", "Country", "Date", "Link", and "Source" columns.
-    """
-    # Extract country from VPN column
-    click_tracking_df["Country"] = (
-        click_tracking_df["VPN"].str.split(" ", expand=True)[0].str.lower()
-    )
-
-    # Add Source column with value 'Manual'
-    click_tracking_df["Source"] = "Manual"
-
-    # Convert Ranking column to numeric
-    click_tracking_df["Ranking"] = pd.to_numeric(
-        click_tracking_df["Ranking"], errors="coerce"
-    )
-
-    # Apply filters to the DataFrame
-    click_tracking_df = click_tracking_df[
-        (click_tracking_df["Ranking"].notnull())
-        & (click_tracking_df["Country"].str.len() <= 2)
-        & (click_tracking_df["Link"].str.count("/") > 2)
-        & (
-            ~click_tracking_df["Link"]
-            .fillna("")
-            .str.endswith(
-                (
-                    ".com/",
-                    ".net/",
-                    ".org/",
-                    ".ca/",
-                    ".info/",
-                    ".biz/",
-                    ".us/",
-                    ".uk/",
-                    ".co.uk/",
-                    ".de/",
-                    ".jp/",
-                    ".fr/",
-                    ".au/",
-                )
-            )
-        )
-        & (click_tracking_df["Link"].str.endswith("/"))
-    ].loc[:, ["Keyword", "Country", "Date", "Link", "Source"]]
-
-    # Convert country names to ISO2 codes
-    cc = coco.CountryConverter()
-    click_tracking_df["Country"] = click_tracking_df["Country"].apply(
-        cc.convert, to="ISO2"
-    )
-
-    # Return the processed DataFrame
-    return click_tracking_df
-
-
-def process_click_tracking_data_serpclix(
-    click_tracking_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Processes the click tracking data for SerpClix and returns a cleaned DataFrame.
+    Counts the number of in-house clicks for each keyword, country, and date range.
 
     Args:
-        click_tracking_df (pd.DataFrame): A DataFrame containing click tracking data for SerpClix.
+        click_data_df (pd.DataFrame): A DataFrame containing click tracking data.
 
     Returns:
-        pd.DataFrame: A cleaned DataFrame containing only the "Keyword", "Country", "Date", "Link", and "Source" columns.
+        pd.DataFrame: A DataFrame containing the number of in-house clicks for each keyword, country, and date range.
     """
+    # Group the DataFrame by "Keyword", "Country", "Date", and "Source" and count the number of clicks
+    in_house_clicks_df = click_data_df.groupby(
+        ["query", "country", "page", "date_range", "source"]
+    )["page"].count()
 
-    # Create a column "Source" with the value "SerpClix"
-    click_tracking_df["Source"] = "SerpClix"
+    # Convert the Series to a DataFrame
+    in_house_clicks_df = in_house_clicks_df.to_frame()
 
-    # Rename "Clicker Country" column to "Country"
-    click_tracking_df = click_tracking_df.rename(columns={"Clicker Country": "Country"})
+    # Create a new column "in_house_clicks"
+    in_house_clicks_df = in_house_clicks_df.rename(columns={"page": "in_house_clicks"})
 
-    # Convert all values from column Country into ISO2 codes
-    country_converter = coco.CountryConverter()
-    click_tracking_df.loc[:, "Country"] = click_tracking_df["Country"].apply(
-        country_converter.convert, to="ISO2"
-    )
+    # Reset the index
+    in_house_clicks_df = in_house_clicks_df.reset_index()
 
-    # Rename column "Timestamp" to "Date"
-    click_tracking_df = click_tracking_df.rename(columns={"Timestamp": "Date"})
+    # make column "in_house_clicks" an integer
+    in_house_clicks_df["in_house_clicks"] = in_house_clicks_df[
+        "in_house_clicks"
+    ].astype(int)
 
-    # Rename column "URL" to "Link"
-    click_tracking_df = click_tracking_df.rename(columns={"URL": "Link"})
-
-    # Convert "Date" column to datetime values YYYY-MM-DD
-    click_tracking_df["Date"] = pd.to_datetime(
-        click_tracking_df["Date"], errors="coerce"
-    )
-
-    # Convert "Date" column to string values YYYY-MM-DD
-    click_tracking_df["Date"] = click_tracking_df["Date"].dt.strftime("%Y-%m-%d")
-
-    # Drop rows if "Link" values do not contain "/"
-    click_tracking_df = click_tracking_df.loc[
-        click_tracking_df["Link"].str.contains("/")
-    ]
-
-    # Add a "/" to the end of the "Link" column if it doesn't already end with one
-    click_tracking_df.loc[~click_tracking_df["Link"].str.endswith("/"), "Link"] += "/"
-
-    # Add "http://" to "Link" values that do not have "http" or "https"
-    click_tracking_df["Link"] = click_tracking_df["Link"].apply(
-        lambda x: "https://" + x if "http" not in x else x
-    )
-
-    # Add "/" to the end of "Link" values that do not end with "/"
-    click_tracking_df["Link"] = click_tracking_df["Link"].apply(
-        lambda x: x + "/" if x[-1] != "/" else x
-    )
-
-    # Drop columns other than "Keyword", "Country", "Date", "Link", and "Source"
-    click_tracking_df = click_tracking_df[
-        ["Keyword", "Country", "Date", "Link", "Source"]
-    ]
-
-    # Drop rows with NaN values in Date column
-    click_tracking_df = click_tracking_df.dropna(subset=["Date"])
-
-    # Return the cleaned DataFrame
-    return click_tracking_df
+    # # Return the DataFrame
+    return in_house_clicks_df
 
 
-def add_date_range_column(
-    date_ranges: list, df: pd.DataFrame, date_column: str
-) -> pd.DataFrame:
+def count_serpclix_clicks(click_data_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds a date_range column to a pandas DataFrame based on a list of date ranges.
+    Counts the number of in-house clicks for each keyword, country, and date range.
 
-    Parameters:
-    -----------
-    date_ranges : list
-        A list of tuples, where each tuple contains two datetime objects that represent the start and end of a date range.
-    df : pandas.DataFrame
-        The DataFrame to add the date_range column to.
-    date_column : str
-        The name of the column in the DataFrame that contains the dates.
+    Args:
+        click_data_df (pd.DataFrame): A DataFrame containing click tracking data.
 
     Returns:
-    --------
-    pandas.DataFrame
-        The DataFrame with the added date_range column.
+        pd.DataFrame: A DataFrame containing the number of in-house clicks for each keyword, country, and date range.
     """
+    # Group the DataFrame by "Keyword", "Country", "Date", and "Source" and count the number of clicks
+    inclix_df = click_data_df.groupby(
+        ["query", "country", "page", "date_range", "source"]
+    )["page"].count()
 
-    df[date_column] = pd.to_datetime(
-        df[date_column]
-    )  # parse date_column as a date type
+    # Convert the Series to a DataFrame
+    inclix_df = inclix_df.to_frame()
 
-    df["date_range"] = df[date_column].apply(
-        lambda date: next(
-            (
-                f"{date_range[1].date()} - {date_range[0].date()}"
-                for date_range in date_ranges
-                if date >= date_range[1] and date <= date_range[0]
-            ),
-            "N/A",
-        )
-    )
+    # Create a new column "in_house_clicks"
+    inclix_df = inclix_df.rename(columns={"page": "serpclix_clicks"})
 
-    return df
+    # Reset the index
+    inclix_df = inclix_df.reset_index()
+
+    # # Return the DataFrame
+    return inclix_df
 
 
 def clean_date_range_df(click_data_df: pd.DataFrame) -> pd.DataFrame:
@@ -251,21 +143,58 @@ def clean_date_range_df(click_data_df: pd.DataFrame) -> pd.DataFrame:
     return click_data_df
 
 
+def combine_source_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Combines the source_x and source_y columns into a single column named source.
+
+    Args:
+        df (pd.DataFrame): A DataFrame containing the source_x and source_y columns.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the source_x and source_y columns combined into a single column named source.
+    """
+    # combine source_x and source_y columns
+    df["source"] = df["source_x"].fillna("") + df["source_y"].fillna("")
+
+    # remove source_x and source_y columns
+    df = df.drop(columns=["source_x", "source_y"])
+
+    # save to csv
+    # df.to_csv("combined_source_columns.csv", index=False, sep="\t", encoding="utf-8")
+
+    return df
+
+
+# def sum_click_data(df):
+#     # sum between in-house and serpclix clicks, where not null, convert to int
+#     df["adjusted_clicks"] = df["in_house_clicks"].fillna(0).astype(int) + df[
+#         "serpclix_clicks"
+#     ].fillna(0).astype(int)
+#     return df
+
+
+def merge_inhouse_serpclix_dfs(df1, df2):
+    # merge the two click tracking dataframes on 'query', 'country', 'page', 'date_range'
+    merged_click_tracking_df = pd.merge(
+        df1,
+        df2,
+        on=["query", "country", "page", "date_range"],
+        how="outer",
+    )
+    return merged_click_tracking_df
+
+
 def get_click_data_df() -> pd.DataFrame:
     date_ranges = get_date_ranges()
 
-    # ahrefs_domain = "https://docs.google.com/spreadsheets/d/1K7RfT4x8rjZyEN6M3pmwZspUpL1QFqnjsSgLQyqXFYs/edit#gid=437054005"
-    # filter_rules = "https://docs.google.com/spreadsheets/d/1uBsysJd1XTtOftpD04W_vlWDRXczzeESmbS51DP0U_0/edit#gid=0"
+    # print(f"Date ranges:{date_ranges}")
+
     in_house_link_clicking = "https://docs.google.com/spreadsheets/d/124YEzAPOtR3UFT-KfG9IAWrcJr67icSPU475opYSaw8/edit#gid=1743911824"
     serpclix_link_clicking = "https://docs.google.com/spreadsheets/d/186V5aIS4cNqhlFI_--0uqSQUMzrzjp_OtVCXZ1xVVoE/edit#gid=0"
 
-    # download_gsheet(ahrefs_domain, "gsheet/ahrefs_domain.csv")
-    # download_gsheet(filter_rules, "gsheet/filter_rules.csv")
     download_gsheet(in_house_link_clicking, "gsheet/in_house_link_clicking.csv")
     download_gsheet(serpclix_link_clicking, "gsheet/serpclix_link_clicking.csv")
 
-    # ahrefs_domain_df = pd.read_csv("gsheet/ahrefs_domain.csv", sep=",", encoding="utf-8")
-    # filter_rules_df = pd.read_csv("gsheet/filter_rules.csv", sep=",", encoding="utf-8")
     in_house_link_clicking_df = pd.read_csv(
         "gsheet/in_house_link_clicking.csv", sep=",", encoding="utf-8"
     )
@@ -279,27 +208,48 @@ def get_click_data_df() -> pd.DataFrame:
         in_house_link_clicking_df
     )
 
+    in_house_link_clicking_df = add_date_range_column_and_clean(
+        in_house_link_clicking_df, date_ranges
+    )
+    in_house_link_clicking_df = count_in_house_clicks(in_house_link_clicking_df)
+
+    # save to csv
+    in_house_link_clicking_df.to_csv(
+        "in_house_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
+    )
+
     #### Serpclix Click Tracking Data Extraction
 
-    click_tracking_data_serpclix = process_click_tracking_data_serpclix(
-        serpclix_link_clicking_df
+    click_tracking_data_serpclix_df = process_click_tracking_data_serpclix(
+        serpclix_link_clicking_df, date_ranges
     )
 
+    click_tracking_data_serpclix_df = add_date_range_column_and_clean(
+        click_tracking_data_serpclix_df, date_ranges
+    )
+
+    click_tracking_data_serpclix_df = count_serpclix_clicks(
+        click_tracking_data_serpclix_df
+    )
+    # save to csv
+    click_tracking_data_serpclix_df.to_csv(
+        "serpclix_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
+    )
     #### Merge Click Tracking Data
 
-    # merge the two click tracking dataframes
-    merged_click_tracking_df = pd.concat(
-        [in_house_link_clicking_df, click_tracking_data_serpclix]
+    merged_click_tracking_df = merge_inhouse_serpclix_dfs(
+        in_house_link_clicking_df, click_tracking_data_serpclix_df
     )
+    merged_click_tracking_df = combine_source_columns(merged_click_tracking_df)
 
-    click_data_df = add_date_range_column(date_ranges, merged_click_tracking_df, "Date")
+    merged_click_tracking_df = add_domain_tld_column(merged_click_tracking_df)
 
-    ### Generate click data
-    click_data_df = clean_date_range_df(click_data_df)
+    # # save to csv
+    # merged_click_tracking_df.to_csv(
+    #     "merged_click_tracking_df.csv", index=False, sep="\t", encoding="utf-8"
+    # )
 
-    # click_data_df.to_csv("click_data.csv", index=False)
-
-    return click_data_df
+    return merged_click_tracking_df
 
 
 # get_click_data_df()

@@ -41,26 +41,6 @@ def merge_gsc_and_click_data(gsc_df, click_data_df) -> pd.DataFrame:
 
     """
 
-    # convert start_date and end_date to string
-    gsc_df["start_date"] = gsc_df["start_date"].astype(str)
-    gsc_df["end_date"] = gsc_df["end_date"].astype(str)
-
-    # combine start_date and end_date into a single column separated by a :
-    gsc_df["date_range"] = gsc_df["start_date"] + ":" + gsc_df["end_date"]
-    # remove the start_date and end_date columns
-    gsc_df = gsc_df.drop(["start_date", "end_date"], axis=1)
-
-    # convert start_date and end_date to string
-    click_data_df["start_date"] = click_data_df["start_date"].astype(str)
-    click_data_df["end_date"] = click_data_df["end_date"].astype(str)
-
-    # combine start_date and end_date into a single column separated by a :
-    click_data_df["date_range"] = (
-        click_data_df["start_date"] + ":" + click_data_df["end_date"]
-    )
-    # remove the start_date and end_date columns
-    click_data_df = click_data_df.drop(["start_date", "end_date"], axis=1)
-
     # save to csv
     gsc_df.to_csv("test/gsc.csv", index=False, encoding="utf-8", sep="\t")
     click_data_df.to_csv("test/click_data.csv", index=False, encoding="utf-8", sep="\t")
@@ -68,17 +48,17 @@ def merge_gsc_and_click_data(gsc_df, click_data_df) -> pd.DataFrame:
     merged_df = pd.merge(
         gsc_df,
         click_data_df,
-        how="left",
+        how="outer",
         on=["query", "page", "country", "date_range", "domain"],
     )
 
-    # create a new column "final clicks" with the diffrence between "clicks" and the "simulated clicks", if "simulated clicks" is NaN, then "final clicks" = "clicks"
-    merged_df["final clicks"] = merged_df.apply(
-        lambda row: row["clicks"] - row["simulated clicks"]
-        if not pd.isnull(row["simulated clicks"])
-        else row["clicks"],
-        axis=1,
-    )
+    # # create a new column "final clicks" with the diffrence between "clicks" and the "simulated clicks", if "simulated clicks" is NaN, then "final clicks" = "clicks"
+    # merged_df["adjusted_clicks"] = merged_df.apply(
+    #     lambda row: row["clicks"] - row["simulated clicks"]
+    #     if not pd.isnull(row["simulated clicks"])
+    #     else row["clicks"],
+    #     axis=1,
+    # )
 
     return merged_df
 
@@ -95,7 +75,7 @@ def aggregate_clicks_impressions_by_query_page_country(df):
     click_impressions_by_query_page_country = df.pivot(
         index=["query", "page", "country"],
         columns="date_range",
-        values=["clicks", "impressions"],
+        values=["position"],
     ).reset_index()
 
     # Rename the columns to include the metric (clicks or impressions) and the date range.
@@ -109,15 +89,66 @@ def aggregate_clicks_impressions_by_query_page_country(df):
 
 def run():
     gsc_df = get_gsc_data_df()
+    gsc_df.to_csv("test/gsc.csv", index=False, encoding="utf-8", sep="\t")
+
     click_data_df = get_click_data_df()
+    click_data_df.to_csv("test/click_data.csv", index=False, encoding="utf-8", sep="\t")
 
     merged_df = merge_gsc_and_click_data(gsc_df, click_data_df)
-
-    merged_df.to_csv("merged_df.csv", index=False, encoding="utf-8", sep="\t")
+    merged_df.to_csv("test/merged_df.csv", index=False, encoding="utf-8", sep="\t")
 
     pivoted_df = aggregate_clicks_impressions_by_query_page_country(merged_df)
+    pivoted_df.to_csv("test/pivoted.csv", index=False, encoding="utf-8", sep="\t")
 
-    pivoted_df.to_csv("pivoted.csv", index=False, encoding="utf-8", sep="\t")
+    # intersect pivoted_df with merged_df
 
 
 run()
+
+
+# open merged_df.csv on column date_range and extract create a list of all unique values
+# create a list of all unique values in the column date_range
+
+# merged_df = pd.read_csv("merged_df.csv", sep="\t", encoding="utf-8")
+# date_range_list = merged_df["date_range"].unique().tolist()
+# # strip the list at : and keep the first value
+# date_range_list = [date_range.split(" - ")[0] for date_range in date_range_list]
+# # order dates from newest to oldest
+# date_range_list.sort(reverse=True)
+# newest_date = date_range_list[0]
+# print(newest_date)
+
+# in merged_df, drop all rows where date_range does not contain the string newest_date
+# merged_df_newest_date = merged_df[merged_df["date_range"].str.contains(newest_date)]
+# merged_df_newest_date.to_csv(
+#     "merged_df_newest_date.csv", index=False, encoding="utf-8", sep="\t"
+# )
+
+
+# def filter_domains_by_country(df1, df2):
+#     """
+#     Filter rows in df1 based on matching values in df2 for domain and country.
+#     """
+#     # Create a copy of df1 to avoid modifying the original DataFrame
+#     filtered_df = df1.copy()
+
+#     # Split countries column into a list
+#     filtered_df["countries"] = filtered_df["countries"].str.split(",")
+
+#     # Iterate over each row of df1
+#     for index, row in df1.iterrows():
+#         # Check if there are any matching rows in df2 for this domain and any country in the list
+#         is_match = False
+#         domain = row["domain"]
+#         for country in row["countries"]:
+#             if not df2.loc[
+#                 (df2["domain"] == domain) & (df2["country"] == country)
+#             ].empty:
+#                 is_match = True
+#                 break
+
+#         # If no match found, delete this row from the resulting dataframe
+#         if not is_match:
+#             filtered_df.drop(index, inplace=True)
+
+#     return filtered_df
