@@ -4,9 +4,7 @@ import pandas as pd
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-import google.auth
 from googleapiclient.discovery import build
-import streamlit_pandas as sp
 
 
 def get_credentials():
