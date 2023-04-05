@@ -176,16 +176,6 @@ def get_gsc_dataframes(account, web_property, start_date, end_date, country):
         .range(start_date, days=-28)
         .dimension("query", "page", "country")
         .filter("country", country, "equals")
-        .filter(
-            "query",
-            "(job)",
-            "excludingRegex",
-        )
-        .filter(
-            "query",
-            "(staff|recruit)",
-            "includingRegex",
-        )
         .limit(25000)
         .get()
         .to_dataframe()

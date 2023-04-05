@@ -88,8 +88,8 @@ def get_adjusted_clicks(df):
 
 def fill_na_with_zero(df):
     # fill the NaN with 0 for the collumns "clicks","in_house_clicks",	"serpclix_clicks"
-    df[["clicks", "in_house_clicks", "serpclix_clicks"]] = df[
-        ["clicks", "in_house_clicks", "serpclix_clicks"]
+    df[["clicks", "in_house_clicks", "serpclix_clicks", "impressions"]] = df[
+        ["clicks", "in_house_clicks", "serpclix_clicks", "impressions"]
     ].fillna(0)
     return df
 
@@ -232,6 +232,30 @@ def order_rows_by_adjusted_clicks(df):
     return df
 
 
+def pretty_rename(df):
+    df = df.rename(
+        columns={
+            "query": "Keyword",
+            "current_rank": "Current Rank",
+            "previous_rank_1": "Previous Rank 1",
+            "previous_rank_2": "Previous Rank 2",
+            "previous_rank_3": "Previous Rank 3",
+            "previous_rank_4": "Previous Rank 4",
+            "previous_rank_5": "Previous Rank 5",
+            "impressions": "Impressions",
+            "clicks": "Clicks",
+            "in_house_clicks": "In House Clicks",
+            "serpclix_clicks": "SerpClix",
+            "adjusted_clicks": "Adjusted Clicks",
+            "page": "Page",
+            "country": "Country",
+            "date_range": "Date Last Updated Interval",
+            "domain": "Domain",
+        }
+    )
+    return df
+
+
 def gen_db_df():
     gsc_df = get_gsc_data_df()
     # gsc_df.to_csv("test/gsc.csv", index=False, encoding="utf-8", sep="\t")
@@ -297,6 +321,8 @@ def gen_db_df():
     # final_df.to_csv(
     #     "test/11final_reordered.csv", index=False, encoding="utf-8", sep="\t"
     # )
+
+    final_df = pretty_rename(final_df)
 
     return final_df
 
