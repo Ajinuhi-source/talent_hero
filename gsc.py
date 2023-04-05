@@ -10,6 +10,7 @@ from utils import download_gsheet
 from country_converter import CountryConverter
 from utils import add_domain_tld_column
 from utils import add_date_range_column_and_clean
+from stqdm import stqdm
 
 
 def authenticate_account(creds_path: str):
@@ -155,9 +156,7 @@ def explode_countries(data_frame):
     return exploded_df
 
 
-def get_gsc_dataframes(
-    account, web_property, start_date, end_date, country, includingRegex, excludingRegex
-):
+def get_gsc_dataframes(account, web_property, start_date, end_date, country):
     """
     Get Google Search Console dataframes for a given account, date ranges, and web property.
     Performs a GSC query for each date range and appends start and end date columns.
@@ -179,15 +178,15 @@ def get_gsc_dataframes(
         .filter("country", country, "equals")
         .filter(
             "query",
-            "(job|energy resourcing|archipro|vetted|180|bemana|bristol|caltek|energists|lock|mangrum|nexus|pender|quantum|redfish|summit|surf search)",
+            "(job)",
             "excludingRegex",
         )
         .filter(
             "query",
-            "(staff|recruit|energy|oil|gas|power|renewable|mining|chemical|construction|technology|architect|interior design|landscape|engineer|project|program|database|helpdesk|system admin|systems admin)",
+            "(staff|recruit)",
             "includingRegex",
         )
-        .limit(100)
+        .limit(25000)
         .get()
         .to_dataframe()
     )
@@ -276,7 +275,7 @@ def extract_gsc_web_properties(account):
         List: A list of web properties in the GSC account.
     """
     gsc_web_property_list = []
-    for i in tqdm(range(10), desc="Extracting web properties..."):
+    for i in stqdm(range(10), desc="Extracting web properties from GSC..."):
         gsc_web_property_list += extract_gsc_accounts_webproperty_list(account)
 
     # Remove duplicates from the list of web properties
@@ -327,7 +326,7 @@ def create_gsc_webpropriety_df(gsc_webpropriety_list):
     )
 
     # Save the DataFrame to CSV file without index column
-    gsc_webpropriety_df.to_csv("gsc_webpropriety_df.csv", index=False)
+    # gsc_webpropriety_df.to_csv("gsc_webpropriety_df.csv", index=False)
 
     return gsc_webpropriety_df
 
@@ -399,25 +398,25 @@ def get_gsc_data_df():
     )
 
     # saveto csv
-    ahrefs_domains_df.to_csv("ahrefs_domain_processed.csv", index=False)
+    # ahrefs_domains_df.to_csv("ahrefs_domain_processed.csv", index=False)
 
     domain_list = extract_unique_ahrefs_domains(ahrefs_domains_df)
 
     # Extract Google Search Console web properties
     gsc_webpropriety_list = []
-    for i in tqdm(range(10), desc="Extracting web properties..."):
+    for i in stqdm(range(10), desc="Extracting web properties from GSC..."):
         gsc_webpropriety_list += extract_gsc_accounts_webproperty_list(account)
 
     # Remove duplicates from the list of web properties
     gsc_webpropriety_list = list(set(gsc_webpropriety_list))
-    print(gsc_webpropriety_list)
+    # print(gsc_webpropriety_list)
 
     gsc_webpropriety_df = create_gsc_webpropriety_df(gsc_webpropriety_list)
 
     viable_gsc_domains_df = merge_and_clean_data(ahrefs_domains_df, gsc_webpropriety_df)
 
     # save to csv
-    viable_gsc_domains_df.to_csv("viable_gsc_domains_df.csv", index=False)
+    # viable_gsc_domains_df.to_csv("viable_gsc_domains_df.csv", index=False)
 
     lists_from_rows = extract_rows_as_lists(
         viable_gsc_domains_df, ["web_property", "start_date", "end_date", "Country"]
@@ -425,14 +424,19 @@ def get_gsc_data_df():
 
     # Extract dataframes for each viable web property
     domains_df = []
-    for viable_gsc_domain in tqdm(lists_from_rows, desc="Extracting dataframes..."):
+    for viable_gsc_domain in stqdm(lists_from_rows, desc="Extracting dataframes"):
+        web_property = viable_gsc_domain[0]
+        start_date = viable_gsc_domain[2]
+        end_date = viable_gsc_domain[1]
+        country = viable_gsc_domain[3]
+        desc = f"Property: {web_property}, Start Date: {start_date}, End Date: {end_date}, Country: {country}"
         domains_df.append(
             get_gsc_dataframes(
                 account,
-                web_property=viable_gsc_domain[0],
-                start_date=viable_gsc_domain[1],
-                end_date=viable_gsc_domain[2],
-                country=viable_gsc_domain[3],
+                web_property=web_property,
+                start_date=start_date,
+                end_date=end_date,
+                country=country,
             )
         )
 
@@ -441,7 +445,7 @@ def get_gsc_data_df():
         gsc_df = pd.concat(domains_df)
 
         # Save dataframe to csv
-        gsc_df.to_csv("gsc_df_raw.csv", index=False, sep="\t", encoding="utf-8")
+        # gsc_df.to_csv("gsc_df_raw.csv", index=False, sep="\t", encoding="utf-8")
 
         gsc_df = drop_duplicates_based_on_columns(
             gsc_df, ["page", "start_date", "end_date", "country"]
@@ -460,7 +464,7 @@ def get_gsc_data_df():
         gsc_df = drop_start_date_end_date(gsc_df)
 
         # Save dataframe to csv
-        gsc_df.to_csv("gsc_df.csv", index=False, sep="\t", encoding="utf-8")
+    # gsc_df.to_csv("gsc_df.csv", index=False, sep="\t", encoding="utf-8")
     else:
         print("Domains not found in GSC")
         gsc_df = None
@@ -468,38 +472,6 @@ def get_gsc_data_df():
     return gsc_df
 
 
+#
+#
 # get_gsc_data_df()
-
-
-def explode_all_domains(df):
-    # Get all unique domain values
-    unique_domains = df["domain"].unique()
-
-    # If "all" is in unique_domains, explode it into all unique domains
-    if "all" in unique_domains:
-        df = df.drop(columns="domain").merge(
-            pd.DataFrame({"domain": unique_domains[unique_domains != "All"]}),
-            how="right",
-        )
-
-    return df
-
-
-# Download domain list from Google Sheet
-filter_rules = "https://docs.google.com/spreadsheets/d/1uBsysJd1XTtOftpD04W_vlWDRXczzeESmbS51DP0U_0/edit#gid=0"
-download_gsheet(filter_rules, "gsheet/filter_rules.csv")
-
-filter_rules_df = pd.read_csv("gsheet/filter_rules.csv", sep=",", encoding="utf-8")
-# convert all columns to lowercase
-filter_rules_df.columns = filter_rules_df.columns.str.lower()
-
-# remove epmty space at beggining of string in all columns
-filter_rules_df = filter_rules_df.apply(
-    lambda x: x.str.strip() if x.dtype == "object" else x
-)
-
-# in column "domain" if value is exactly "all" then replace with empty string then
-filter_rules_df = explode_all_domains(filter_rules_df)
-
-# save to csv
-filter_rules_df.to_csv("filter_rules_df.csv", sep="\t", index=False, encoding="utf-8")

@@ -112,7 +112,7 @@ def add_date_range_column(date_ranges: list, input_df: pd.DataFrame) -> pd.DataF
     def get_date_range(date, date_ranges):
         for date_range in date_ranges:
             if date >= date_range[1] and date <= date_range[0]:
-                return f"{date_range[0].date()} - {date_range[1].date()}"
+                return f"{date_range[1].date()} - {date_range[0].date()}"
         return "N/A"
 
     input_df["date_range"] = input_df["date"].apply(

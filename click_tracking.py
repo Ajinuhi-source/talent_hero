@@ -214,9 +214,9 @@ def get_click_data_df() -> pd.DataFrame:
     in_house_link_clicking_df = count_in_house_clicks(in_house_link_clicking_df)
 
     # save to csv
-    in_house_link_clicking_df.to_csv(
-        "in_house_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
-    )
+    # in_house_link_clicking_df.to_csv(
+    #     "in_house_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
+    # )
 
     #### Serpclix Click Tracking Data Extraction
 
@@ -232,9 +232,9 @@ def get_click_data_df() -> pd.DataFrame:
         click_tracking_data_serpclix_df
     )
     # save to csv
-    click_tracking_data_serpclix_df.to_csv(
-        "serpclix_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
-    )
+    # click_tracking_data_serpclix_df.to_csv(
+    #     "serpclix_link_clicking.csv", index=False, sep="\t", encoding="utf-8"
+    # )
     #### Merge Click Tracking Data
 
     merged_click_tracking_df = merge_inhouse_serpclix_dfs(
