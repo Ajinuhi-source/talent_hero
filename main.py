@@ -88,7 +88,10 @@ def regenerate_dataframe_on_button_press(dataframe):
     return dataframe
 
 
-# log in logic to google
+import streamlit as st
+from st_aggrid import AgGrid, GridOptionsBuilder, DataReturnMode, JsCode
+
+# Log in logic to Google
 st.set_page_config(layout="wide")
 pd.set_option("display.max_rows", 1000)
 
@@ -126,19 +129,39 @@ if df is not None and selected_domain is not None:
         filtered_dataframe = df[df["Domain"] == selected_domain]
         st.session_state.filtered_dataframe = filtered_dataframe
 
+    # Set up AgGrid
+    gb = GridOptionsBuilder.from_dataframe(filtered_dataframe)
+    gb.configure_pagination(paginationAutoPageSize=True)
+    gb.configure_default_column(
+        groupable=True, value=True, enableRowGroup=True, aggFunc="sum"
+    )
+    gridOptions = gb.build()
+
+    # Display AgGrid
+    grid_response = AgGrid(
+        filtered_dataframe,
+        gridOptions=gridOptions,
+        width="100%",
+        data_return_mode=DataReturnMode.AS_PANDAS,
+        update_mode=DataReturnMode.NO_UPDATE,
+        allow_download=False,
+        theme="light",
+    )
+
+    # Filter the filtered dataframe with sliders
+    if grid_response["args"]["selected_rows"] is not None:
+        selected_rows = grid_response["args"]["selected_rows"]
+        filtered_dataframe = filtered_dataframe.loc[selected_rows.index]
     filtered_dataframe = filter_dataframe_with_sliders(
         filtered_dataframe, "Adjusted Clicks", "Impressions"
     )
-    # Display filtered dataframe
-    st.write(filtered_dataframe)
 
-    # Add a button to download the filtered dataframe as a CSV file
+    # Download button for the filtered dataframe
     csv_data = convert_dataframe_to_csv(filtered_dataframe)
-    st.download_button(
-        label="Download Report as CSV",
-        data=csv_data,
-        file_name=f"{selected_domain}_report.csv",
-        mime="text/csv",
-    )
+    csv_filename = f"{selected_domain}_report.csv"
+    b64 = base64.b64encode(csv_data.encode()).decode()
+    href = f'<a href="data:file/csv;base64,{b64}" download="{csv_filename}">Download Report as CSV</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
 else:
     st.warning("Please generate the DataFrame and select a domain")
