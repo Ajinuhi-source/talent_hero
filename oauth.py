@@ -14,7 +14,7 @@ REFRESH_TOKEN_URL = "1//093iEipWQO4xfCgYIARAAGAkSNwF-L9IrQNecuUiL71drDRYC4BJ4_dO
 REVOKE_TOKEN_URL = "REVOKE_TOKEN_URL"
 CLIENT_ID = "674795694378-vl9uqohnji0a86mdedv1nogl7fqmo5uo.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
-REDIRECT_URI = "https://localhost:8501"
+REDIRECT_URI = "https://cefege-talent-hero-oauth-regesz.streamlit.app/"
 SCOPE = "https://www.googleapis.com/auth/webmasters.readonly"
 
 # Create OAuth2Component instance
