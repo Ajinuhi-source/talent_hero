@@ -25,6 +25,86 @@ def get_credentials():
     return cred
 
 
+def sign_in():
+    st.set_page_config(page_title="GSC Viewer - Sign In")
+    st.title("Sign In with Google")
+
+    # Create an OAuth 2.0 flow object
+flow = InstalledAppFlow.from_client_config(
+    creds.client_config, scopes=SCOPES, redirect_uri=creds.client_config["redirect_uris"][0]
+)
+
+    # Check if user is already authorized
+    try:
+        credentials = Credentials.from_authorized_user_info(info=None, scopes=API_SCOPES)
+    except google.auth.exceptions.DefaultCredentialsError:
+        credentials = None
+
+    # If user is already authorized, redirect to main app page
+    if credentials:
+        st.experimental_set_query_params(google_auth_state=flow._state)
+        return st.redirect('/app')
+
+    # If user is not authorized, display sign-in button
+    else:
+        st.write("Click the button below to sign in with Google.")
+        if st.button("Sign in"):
+            auth_url, _ = flow.authorization_url(prompt="consent")
+            st.experimental_set_query_params(google_auth_state=flow._state)
+            return st.redirect(auth_url)
+
+def app():
+    st.set_page_config(page_title="GSC Viewer - App")
+    st.title("Google Search Console Viewer")
+
+    # Check if user is authorized
+    try:
+        credentials = Credentials.from_authorized_user_info(info=None, scopes=API_SCOPES)
+    except google.auth.exceptions.DefaultCredentialsError:
+        st.error("You need to sign in with Google to use this app.")
+        return
+
+    # If user is authorized, display GSC data
+    st.write("You are signed in with Google.")
+    st.write("Here is your Google Search Console data:")
+
+    # Make GSC API requests using the authorized credentials
+    # ...
+
+def main():
+    if st.experimental_get_query_params().get('google_auth_state'):
+        state = st.experimental_get_query_params()['google_auth_state'][0]
+        flow = Flow.from_client_config(
+            {
+                "installed": {
+                    "client_id": CLIENT_ID,
+                    "client_secret": CLIENT_SECRET,
+                    "redirect_uris": [REDIRECT_URI],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://accounts.google.com/o/oauth2/token",
+                }
+            },
+            scopes=API_SCOPES,
+            state=state,
+        )
+        flow.fetch_token(authorization_response=st.request.url)
+        credentials = flow.credentials
+        st.experimental_set_query_params(google_auth_state=None)
+    else:
+        credentials = None
+
+    if st.session_state.current_page == 'sign_in':
+        sign_in()
+    elif st.session_state.current_page == 'app':
+        app()
+    else:
+        st.session_state.current_page = 'sign_in'
+        sign_in()
+
+if __name__ == "__main__":
+    st.session_state
+
+
 # Define the function to generate the dataframe
 @st.cache_data
 def generate_dataframe():
