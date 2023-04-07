@@ -82,7 +82,7 @@ def gsc_viable_web_proprieties(viable_web_properties, ahrefs_domains_df):
 
     # create a colum 'domain' that extracts the domain from the 'gsc_web_property' column using tldextract
     gsc_helper_df["domain"] = gsc_helper_df["gsc_web_property"].apply(
-        lambda x: tldextract.extract(x).domain
+        lambda x: tldextract.extract(x).domain + "." + tldextract.extract(x).suffix
     )
 
     return gsc_helper_df
@@ -435,11 +435,21 @@ def get_gsc_data_df():
         gsc_df = pd.concat(domains_df)
 
         # Save dataframe to csv
-        # gsc_df.to_csv("gsc_df_raw.csv", index=False, sep="\t", encoding="utf-8")
+        # gsc_df.to_csv("test/gsc_df_raw.csv", index=False, sep="\t", encoding="utf-8")
+
+        ### rewrite code to combine rows when "query", "page", "start_date", "end_date", "country" is a match and make a sum of the clicks and impressions and position
 
         gsc_df = drop_duplicates_based_on_columns(
-            gsc_df, ["page", "start_date", "end_date", "country"]
+            gsc_df,
+            ["query", "page", "start_date", "end_date", "country"],
         )
+        # Save dataframe to csv
+        # gsc_df.to_csv(
+        #     "test/gsc_df_raw_duplicates_dropped.csv",
+        #     index=False,
+        #     sep="\t",
+        #     encoding="utf-8",
+        # )
 
         # Clean up data
         gsc_df = drop_fake_countries(gsc_df)

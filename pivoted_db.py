@@ -3,6 +3,7 @@ import numpy as np
 from utils import download_gsheet
 from gsc import get_gsc_data_df
 from click_tracking import get_click_data_df
+from stqdm import stqdm
 
 
 # This function takes a row from the db_df DataFrame and the entire filter_df DataFrame as input arguments. It checks whether the row from db_df matches any of the filtering rules in filter_df. If a match is found, it returns True or False based on the filter type. If no match is found, the function returns False, meaning the row should not be kept.
@@ -207,6 +208,7 @@ def reorder_dataframe(df):
     # Define the desired column order
     column_order = [
         "query",
+        "page",
         "current_rank",
         "previous_rank_1",
         "previous_rank_2",
@@ -218,7 +220,6 @@ def reorder_dataframe(df):
         "in_house_clicks",
         "serpclix_clicks",
         "adjusted_clicks",
-        "page",
         "country",
         "date_range",
         "domain",
@@ -258,71 +259,80 @@ def pretty_rename(df):
 
 def gen_db_df():
     gsc_df = get_gsc_data_df()
-    # gsc_df.to_csv("test/gsc.csv", index=False, encoding="utf-8", sep="\t")
-
     click_data_df = get_click_data_df()
-    # click_data_df.to_csv("test/click_data.csv", index=False, encoding="utf-8", sep="\t")
 
-    merged_df = merge_gsc_and_click_data(gsc_df, click_data_df)
-    # merged_df.to_csv("test/1merged_df.csv", index=False, encoding="utf-8", sep="\t")
+    # Add a stqdm for the number of steps
+    with stqdm(total=12) as pbar:
+        pbar.set_description("Processing data")
 
-    merged_df = remove_root_domain_rows(merged_df)
-    # merged_df.to_csv(
-    #     "test/2merged_df_no_root.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 1: Merge GSC and Click Data
+        pbar.set_description("Step 1: Merging GSC and Click Data")
+        merged_df = merge_gsc_and_click_data(gsc_df, click_data_df)
+        pbar.update(1)
 
-    # Download domain list from Google Sheet
-    filter_rules = "https://docs.google.com/spreadsheets/d/1uBsysJd1XTtOftpD04W_vlWDRXczzeESmbS51DP0U_0/edit#gid=0"
-    download_gsheet(filter_rules, "gsheet/filter_rules.csv")
+        # Step 2: Remove root domain rows
+        pbar.set_description("Step 2: Removing root domain rows")
+        merged_df = remove_root_domain_rows(merged_df)
+        pbar.update(1)
 
-    filter_rules_df = pd.read_csv("gsheet/filter_rules.csv", sep=",", encoding="utf-8")
+        # Step 3: Download domain list from Google Sheet
+        pbar.set_description("Step 3: Download domain list from Google Sheet")
+        filter_rules = "https://docs.google.com/spreadsheets/d/1uBsysJd1XTtOftpD04W_vlWDRXczzeESmbS51DP0U_0/edit#gid=0"
+        download_gsheet(filter_rules, "gsheet/filter_rules.csv")
+        filter_rules_df = pd.read_csv(
+            "gsheet/filter_rules.csv", sep=",", encoding="utf-8"
+        )
+        pbar.update(1)
 
-    merged_df = merged_df[
-        merged_df.apply(lambda row: apply_filter(row, filter_rules_df), axis=1)
-    ]
-    # merged_df.to_csv(
-    #     "test/3merged_df_filtered.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 4: Apply filter rules to merged_df
+        pbar.set_description("Step 4: Applying filter rules to merged data")
+        merged_df = merged_df[
+            merged_df.apply(lambda row: apply_filter(row, filter_rules_df), axis=1)
+        ]
+        pbar.update(1)
+        # Step 5: Fill missing values with 0
+        pbar.set_description("Step 5: Filling missing values with 0")
+        merged_df = fill_na_with_zero(merged_df)
+        pbar.update(1)
 
-    merged_df = fill_na_with_zero(merged_df)
-    # merged_df.to_csv(
-    #     "test/4merged_df_na_zero.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 6: Get adjusted clicks for each row
+        pbar.set_description("Step 6: Getting adjusted clicks for each row")
+        merged_df = get_adjusted_clicks(merged_df)
+        pbar.update(1)
 
-    merged_df = get_adjusted_clicks(merged_df)
-    # merged_df.to_csv(
-    #     "test/5merged_df_adjusted.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 7: Aggregate clicks and impressions by query, page and country
+        pbar.set_description(
+            "Step 7: Aggregating clicks and impressions by query, page and country"
+        )
+        pivoted_df = aggregate_clicks_impressions_by_query_page_country(merged_df)
+        pbar.update(1)
 
-    pivoted_df = aggregate_clicks_impressions_by_query_page_country(merged_df)
-    # pivoted_df.to_csv("test/6pivoted.csv", index=False, encoding="utf-8", sep="\t")
+        # Step 8: Rename columns in pivoted_df
+        pbar.set_description("Step 8: Renaming columns")
+        pivoted_df = rename_columns(pivoted_df)
+        pbar.update(1)
 
-    pivoted_df = rename_columns(pivoted_df)
-    # pivoted_df.to_csv(
-    #     "test/7pivoted_renamed.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 9: Create first_rank column in pivoted_df
+        pbar.set_description("Step 9: Creating first_rank column")
+        pivoted_df = create_first_rank_column(pivoted_df)
+        pbar.update(1)
 
-    pivoted_df = create_first_rank_column(pivoted_df)
-    # pivoted_df.to_csv(
-    #     "test/8pivoted_first_rank.csv", index=False, encoding="utf-8", sep="\t"
-    # )
+        # Step 10: Combine merged_df with pivoted_df
+        pbar.set_description("Step 10: Combining merged_df with pivoted_df")
+        final_df = combine_merged_df_with_pivoted(merged_df, pivoted_df)
+        final_df = drop_columns(final_df, ["first_rank", "position", "source"])
+        pbar.update(1)
 
-    final_df = combine_merged_df_with_pivoted(merged_df, pivoted_df)
-    # final_df.to_csv("test/9final.csv", index=False, encoding="utf-8", sep="\t")
+        # Step 11: Reorder columns in final_df
+        pbar.set_description("Step 11: Reordering columns")
+        final_df = reorder_dataframe(final_df)
+        pbar.update(1)
 
-    final_df = drop_columns(final_df, ["first_rank", "position", "source"])
-    # final_df.to_csv(
-    #     "test/10final_drop_pos.csv", index=False, encoding="utf-8", sep="\t"
-    # )
-    final_df = reorder_dataframe(final_df)
-
-    final_df = order_rows_by_adjusted_clicks(final_df)
-
-    # final_df.to_csv(
-    #     "test/11final_reordered.csv", index=False, encoding="utf-8", sep="\t"
-    # )
-
-    final_df = pretty_rename(final_df)
+        # Step 12: Rename columns in final_df
+        pbar.set_description("Step 12: Renaming columns to be more readable")
+        final_df = pretty_rename(final_df)
+        final_df.to_csv("gsheet/final_12_df.csv", index=False)
+        pbar.update(1)
 
     return final_df
 
