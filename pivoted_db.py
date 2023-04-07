@@ -17,7 +17,7 @@ def apply_filter(row, filter_df):
 
         # Check if the keyword is in the 'query' column of the current row
         # and if the domain matches or if the domain is set to 'All'
-        if keyword in row["query"] and (domain == "All" or domain == row["domain"]):
+        if keyword in row["Keyword"] and (domain == "All" or domain == row["Domain"]):
             # If the filter type is 'Blacklist', return False (do not keep the row)
             if filter_type == "Blacklist":
                 return False
@@ -217,6 +217,7 @@ def reorder_dataframe(df):
         "previous_rank_5",
         "impressions",
         "clicks",
+        "average_rank",
         "in_house_clicks",
         "serpclix_clicks",
         "adjusted_clicks",
@@ -230,6 +231,21 @@ def reorder_dataframe(df):
 def order_rows_by_adjusted_clicks(df):
     # order from highest to lowest value of column "adjusted_clicks"
     df = df.sort_values(by="adjusted_clicks", ascending=False)
+    return df
+
+
+def add_average_rank(df):
+    rank_cols = [
+        "current_rank",
+        "previous_rank_1",
+        "previous_rank_2",
+        "previous_rank_3",
+        "previous_rank_4",
+        "previous_rank_5",
+    ]
+    df["average_rank"] = (
+        df[rank_cols].apply(lambda x: np.nanmean(x), axis=1).round(decimals=1)
+    )
     return df
 
 
@@ -252,6 +268,7 @@ def pretty_rename(df):
             "country": "Country",
             "date_range": "Date Last Updated Interval",
             "domain": "Domain",
+            "average_rank": "Average Position",
         }
     )
     return df
@@ -262,7 +279,7 @@ def gen_db_df():
     click_data_df = get_click_data_df()
 
     # Add a stqdm for the number of steps
-    with stqdm(total=12) as pbar:
+    with stqdm(total=13) as pbar:
         pbar.set_description("Processing data")
 
         # Step 1: Merge GSC and Click Data
@@ -286,9 +303,9 @@ def gen_db_df():
 
         # Step 4: Apply filter rules to merged_df
         pbar.set_description("Step 4: Applying filter rules to merged data")
-        merged_df = merged_df[
-            merged_df.apply(lambda row: apply_filter(row, filter_rules_df), axis=1)
-        ]
+        # merged_df = merged_df[
+        #     merged_df.apply(lambda row: apply_filter(row, filter_rules_df), axis=1)
+        # ]
         pbar.update(1)
         # Step 5: Fill missing values with 0
         pbar.set_description("Step 5: Filling missing values with 0")
@@ -322,16 +339,29 @@ def gen_db_df():
         final_df = combine_merged_df_with_pivoted(merged_df, pivoted_df)
         final_df = drop_columns(final_df, ["first_rank", "position", "source"])
         pbar.update(1)
+        final_df.to_csv("test/final_10_df.csv", index=False)
 
         # Step 11: Reorder columns in final_df
         pbar.set_description("Step 11: Reordering columns")
+        final_df = add_average_rank(final_df)
+        pbar.update(1)
+
+        # Step 12: Reorder columns in final_df
+        pbar.set_description("Step 12: Reordering columns")
         final_df = reorder_dataframe(final_df)
         pbar.update(1)
 
-        # Step 12: Rename columns in final_df
-        pbar.set_description("Step 12: Renaming columns to be more readable")
+        # Step 13: Rename columns in final_df
+        pbar.set_description("Step 13: Renaming columns to be more readable")
         final_df = pretty_rename(final_df)
         final_df.to_csv("gsheet/final_12_df.csv", index=False)
+
+        final_df = final_df[
+            final_df.apply(lambda row: apply_filter(row, filter_rules_df), axis=1)
+        ]
+
+        final_df.to_csv("gsheet/final_13_df.csv", index=False)
+
         pbar.update(1)
 
     return final_df

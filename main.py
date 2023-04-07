@@ -133,12 +133,13 @@ if df is not None and selected_domain is not None:
     st.write(filtered_dataframe)
 
     # Add a button to download the filtered dataframe as a CSV file
-    csv_data = convert_dataframe_to_csv(filtered_dataframe)
-    st.download_button(
-        label="Download Report as CSV",
-        data=csv_data,
-        file_name=f"{selected_domain}_report.csv",
-        mime="text/csv",
-    )
+    # csv_data = convert_dataframe_to_csv(filtered_dataframe)
+    # st.download_button(
+    #     label="Download Report as CSV",
+    #     data=csv_data,
+    #     file_name=f"{selected_domain}_report.csv",
+    #     mime="text/csv",
+    # )
+
 else:
     st.warning("Please generate the DataFrame and select a domain")
